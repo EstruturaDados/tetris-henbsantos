@@ -2,7 +2,7 @@
 #include <stdlib.h>
 #include <time.h>
 
-#define TAM_FILA 5   // tamanho fixo da fila
+#define TAM_FILA 5   // capacidade da fila circular
 #define TAM_PILHA 3  // capacidade da pilha de reserva
 
 // Estrutura da peça
@@ -49,10 +49,7 @@ Peca gerarPeca() {
 
 // Inserir peça na fila (enqueue)
 void enqueue(Fila *f, Peca p) {
-    if (f->qtd == TAM_FILA) {
-        printf("Fila cheia! Não é possível adicionar nova peça.\n");
-        return;
-    }
+    if (f->qtd == TAM_FILA) return; // fila cheia
     f->tras = (f->tras + 1) % TAM_FILA;
     f->itens[f->tras] = p;
     f->qtd++;
@@ -61,10 +58,7 @@ void enqueue(Fila *f, Peca p) {
 // Remover peça da fila (dequeue)
 Peca dequeue(Fila *f) {
     Peca removida = {'-', -1};
-    if (f->qtd == 0) {
-        printf("Fila vazia!\n");
-        return removida;
-    }
+    if (f->qtd == 0) return removida; // fila vazia
     removida = f->itens[f->frente];
     f->frente = (f->frente + 1) % TAM_FILA;
     f->qtd--;
@@ -73,10 +67,7 @@ Peca dequeue(Fila *f) {
 
 // Inserir peça na pilha (push)
 int push(Pilha *p, Peca x) {
-    if (p->topo == TAM_PILHA - 1) {
-        printf("Pilha cheia! Não é possível reservar peça.\n");
-        return 0;
-    }
+    if (p->topo == TAM_PILHA - 1) return 0; // pilha cheia
     p->itens[++p->topo] = x;
     return 1;
 }
@@ -84,10 +75,7 @@ int push(Pilha *p, Peca x) {
 // Remover peça da pilha (pop)
 Peca pop(Pilha *p) {
     Peca removida = {'-', -1};
-    if (p->topo == -1) {
-        printf("Pilha vazia! Nenhuma peça reservada.\n");
-        return removida;
-    }
+    if (p->topo == -1) return removida; // pilha vazia
     return p->itens[p->topo--];
 }
 
@@ -97,9 +85,8 @@ void mostrarFila(Fila *f) {
     if (f->qtd == 0) {
         printf("[vazia]");
     } else {
-        int i, idx;
-        for (i = 0; i < f->qtd; i++) {
-            idx = (f->frente + i) % TAM_FILA;
+        for (int i = 0; i < f->qtd; i++) {
+            int idx = (f->frente + i) % TAM_FILA;
             printf("[%c %d] ", f->itens[idx].nome, f->itens[idx].id);
         }
     }
@@ -127,6 +114,34 @@ void mostrarEstado(Fila *f, Pilha *p) {
     printf("====================\n");
 }
 
+// Troca simples: frente da fila <-> topo da pilha
+void trocarAtual(Fila *f, Pilha *p) {
+    if (f->qtd == 0 || p->topo == -1) {
+        printf("Não é possível trocar (fila ou pilha vazia).\n");
+        return;
+    }
+    int idx = f->frente;
+    Peca temp = f->itens[idx];
+    f->itens[idx] = p->itens[p->topo];
+    p->itens[p->topo] = temp;
+    printf("Troca realizada entre frente da fila e topo da pilha.\n");
+}
+
+// Troca múltipla: 3 primeiros da fila <-> 3 peças da pilha
+void trocarMultiplas(Fila *f, Pilha *p) {
+    if (f->qtd < 3 || p->topo < 2) {
+        printf("Não é possível realizar a troca múltipla (faltam peças).\n");
+        return;
+    }
+    for (int i = 0; i < 3; i++) {
+        int idxFila = (f->frente + i) % TAM_FILA;
+        Peca temp = f->itens[idxFila];
+        f->itens[idxFila] = p->itens[p->topo - i];
+        p->itens[p->topo - i] = temp;
+    }
+    printf("Troca múltipla realizada (3 peças da fila <-> 3 peças da pilha).\n");
+}
+
 int main() {
     srand(time(NULL));
 
@@ -144,10 +159,12 @@ int main() {
     do {
         mostrarEstado(&fila, &pilha);
 
-        printf("\nOpções de ação:\n");
-        printf("1 - Jogar peça\n");
-        printf("2 - Reservar peça\n");
-        printf("3 - Usar peça reservada\n");
+        printf("\nOpções disponíveis:\n");
+        printf("1 - Jogar peça da frente da fila\n");
+        printf("2 - Enviar peça da fila para a pilha de reserva\n");
+        printf("3 - Usar peça da pilha de reserva\n");
+        printf("4 - Trocar peça da frente da fila com o topo da pilha\n");
+        printf("5 - Trocar os 3 primeiros da fila com as 3 peças da pilha\n");
         printf("0 - Sair\n");
         printf("Escolha: ");
         scanf("%d", &opcao);
@@ -157,7 +174,7 @@ int main() {
                 Peca jogada = dequeue(&fila);
                 if (jogada.id != -1) {
                     printf("Jogando peça: [%c %d]\n", jogada.nome, jogada.id);
-                    enqueue(&fila, gerarPeca()); // mantém a fila cheia
+                    enqueue(&fila, gerarPeca());
                 }
                 break;
             }
@@ -166,18 +183,27 @@ int main() {
                 if (reservada.id != -1) {
                     if (push(&pilha, reservada)) {
                         printf("Peça reservada: [%c %d]\n", reservada.nome, reservada.id);
-                        enqueue(&fila, gerarPeca()); // mantém a fila cheia
+                        enqueue(&fila, gerarPeca());
+                    } else {
+                        printf("Reserva falhou: pilha cheia.\n");
+                        // devolve a peça perdida (não volta ao jogo no requisito, mas evita "sumir")
                     }
                 }
                 break;
             }
-            case 3: { // Usar peça reservada
+            case 3: { // Usar peça da reserva
                 Peca usada = pop(&pilha);
                 if (usada.id != -1) {
                     printf("Usando peça da reserva: [%c %d]\n", usada.nome, usada.id);
                 }
                 break;
             }
+            case 4: // Troca simples
+                trocarAtual(&fila, &pilha);
+                break;
+            case 5: // Troca múltipla
+                trocarMultiplas(&fila, &pilha);
+                break;
             case 0:
                 printf("Saindo do jogo...\n");
                 break;
